@@ -875,8 +875,10 @@ function renderCargarStep2() {
     modeChip('todos', 'Los 3', 'Todos contra todos · se anota 1º, 2º y 3º') +
     modeChip('dos', 'Solo 2', '1 contra 1, con marcador') +
     '<div style="height:6px"></div>' +
-    '<button class="btn btn-primary' + (!state.modo ? ' disabled' : '') + '" data-action="cargarIrPaso" data-arg="3" style="margin-bottom:10px">Continuar</button>' +
-    '<button class="btn-secondary" style="width:100%" data-action="cargarIrPaso" data-arg="1">Atrás</button>';
+    '<div class="btn-row">' +
+    '<button class="btn-secondary" data-action="cargarIrPaso" data-arg="1">Atrás</button>' +
+    '<button class="btn btn-primary' + (!state.modo ? ' disabled' : '') + '" data-action="cargarIrPaso" data-arg="3">Continuar</button>' +
+    '</div>';
   return html;
 }
 function modeChip(id, name, desc) {
