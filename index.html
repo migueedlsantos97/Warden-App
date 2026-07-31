@@ -288,6 +288,7 @@ var JUEGO_DESC = {
 var MESES_MAY = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SET','OCT','NOV','DIC'];
 var MESES_MIN = ['ene','feb','mar','abr','may','jun','jul','ago','set','oct','nov','dic'];
 var DIAS = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
+var COURT_VB_W = 300, COURT_VB_H = 280; // viewBox de la media cancha (wizard + heatmap)
 
 var PLAYER_DEFAULTS = [
   { id: 0, nombre: 'Murrey', foto: null },
@@ -355,6 +356,7 @@ var state = {
   cinturon: false,
   desempate: false,
   fantasy: false,
+  shotX: 0.5, shotY: 0.82, shotTipo: 'doble',
   cargarToast: false,
 
   nuevaFecha: todayISO(),
@@ -501,6 +503,57 @@ function cinturonHolder() {
 }
 function cinturonesGanados(pid) {
   return data.matches.filter(function (m) { return m.cinturonEnJuego && ganadorDe(m) === pid; }).length;
+}
+
+/* =========================================================
+   MAPA DE CALOR DE TIROS GANADORES
+   ========================================================= */
+var HEX_GRID = (function () {
+  var cells = [], rowH = 24, colW = 26;
+  for (var row = 0, y = 26; y < COURT_VB_H - 10; row++, y += rowH) {
+    var offset = (row % 2) ? colW / 2 : 0;
+    for (var x = 20 + offset; x < COURT_VB_W - 15; x += colW) {
+      cells.push({ x: x, y: y });
+    }
+  }
+  return cells;
+})();
+function nearestHexIndex(px, py) {
+  var best = 0, bestDist = Infinity;
+  for (var i = 0; i < HEX_GRID.length; i++) {
+    var dx = HEX_GRID[i].x - px, dy = HEX_GRID[i].y - py;
+    var d = dx * dx + dy * dy;
+    if (d < bestDist) { bestDist = d; best = i; }
+  }
+  return best;
+}
+function computeHeatmap(pid, juegoFiltro) {
+  var shots = data.matches.filter(function (m) {
+    return m.shot && ganadorDe(m) === pid && (juegoFiltro === 'todos' || m.juego === juegoFiltro);
+  }).map(function (m) { return m.shot; });
+
+  var counts = {};
+  shots.forEach(function (s) {
+    var idx = nearestHexIndex(s.x * COURT_VB_W, s.y * COURT_VB_H);
+    counts[idx] = (counts[idx] || 0) + 1;
+  });
+  var maxCount = 0;
+  for (var k in counts) maxCount = Math.max(maxCount, counts[k]);
+  var hexes = Object.keys(counts).map(function (k) {
+    var cell = HEX_GRID[k];
+    var op = 0.28 + 0.62 * (counts[k] / maxCount);
+    return { x: cell.x, y: cell.y, opacity: op };
+  });
+
+  var tipos = { simple: 0, doble: 0, triple: 0, fantasy: 0 };
+  shots.forEach(function (s) { tipos[s.tipo] = (tipos[s.tipo] || 0) + 1; });
+  var total = shots.length;
+  var pct = {};
+  ['simple', 'doble', 'triple', 'fantasy'].forEach(function (t) {
+    pct[t] = total > 0 ? Math.round(tipos[t] / total * 100) : 0;
+  });
+
+  return { hexes: hexes, total: total, pct: pct };
 }
 
 /* -- sugerencia de pareja 1vs1 para el wizard -- */
@@ -774,6 +827,46 @@ function renderTabla() {
   return html;
 }
 
+function renderHeatmapSection(heat, filtroLabel) {
+  var html = '<div><div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">' +
+    '<div class="label" style="margin:0">Mapa de tiros ganadores</div>' +
+    '<div style="font:600 10px/1 \'Barlow\',sans-serif;color:var(--text-4)">' + filtroLabel + ' · ' + heat.total + ' tiro' + (heat.total === 1 ? '' : 's') + '</div>' +
+    '</div>' +
+    '<div class="card" style="padding:14px;display:flex;justify-content:center">' +
+    '<svg width="240" height="224" viewBox="0 0 ' + COURT_VB_W + ' ' + COURT_VB_H + '">' +
+    courtSvgBase();
+  if (heat.hexes.length) {
+    html += '<defs><polygon id="hx" points="0,-9 7.8,-4.5 7.8,4.5 0,9 -7.8,4.5 -7.8,-4.5"></polygon></defs><g fill="#D32F2F">' +
+      heat.hexes.map(function (h) { return '<use href="#hx" x="' + h.x + '" y="' + h.y + '" opacity="' + h.opacity.toFixed(2) + '"></use>'; }).join('') +
+      '</g>';
+  }
+  html += '</svg></div>';
+  if (!heat.total) {
+    html += '<div style="text-align:center;padding:14px 10px;color:var(--text-4);font:500 11px/1.4 \'Barlow\',sans-serif">Todavía no ganó ningún partido' + (filtroLabel === 'Todos los juegos' ? '' : ' de ' + filtroLabel) + ' — acá va a aparecer dónde entran sus tiros ganadores.</div>';
+  } else {
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">' +
+      '<span style="font:500 10px/1.4 \'Barlow\',sans-serif;color:var(--text-4)">Cada hexágono agrupa tiros ganadores por zona.</span>' +
+      '<div style="display:flex;align-items:center;gap:5px">' +
+      '<span style="font:600 8px/1 \'Barlow\',sans-serif;color:var(--text-4)">MENOS</span>' +
+      '<svg width="60" height="10"><polygon points="0,5 5,0 15,0 20,5 15,10 5,10" fill="#D32F2F" opacity=".25"></polygon><polygon points="20,5 25,0 35,0 40,5 35,10 25,10" fill="#D32F2F" opacity=".55"></polygon><polygon points="40,5 45,0 55,0 60,5 55,10 45,10" fill="#D32F2F" opacity=".9"></polygon></svg>' +
+      '<span style="font:600 8px/1 \'Barlow\',sans-serif;color:var(--text-4)">MÁS</span>' +
+      '</div></div>' +
+      '<div style="margin-top:14px"><div class="label" style="margin-bottom:10px">Tipos de tiro ganador</div>' +
+      '<div style="display:flex;height:12px;border-radius:6px;overflow:hidden">' +
+      ['simple', 'doble', 'triple', 'fantasy'].map(function (t) {
+        return heat.pct[t] > 0 ? '<div style="width:' + heat.pct[t] + '%;background:' + SHOT_TIPO_COLOR[t] + '"></div>' : '';
+      }).join('') +
+      '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px">' +
+      ['simple', 'doble', 'triple', 'fantasy'].filter(function (t) { return heat.pct[t] > 0; }).map(function (t) {
+        return '<div style="display:flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:2px;background:' + SHOT_TIPO_COLOR[t] + '"></span><span style="font:600 11px/1 \'Barlow\',sans-serif">' + SHOT_TIPO_LABEL[t] + ' <b style="color:var(--text-2);font-weight:600">' + heat.pct[t] + '%</b></span></div>';
+      }).join('') +
+      '</div></div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function renderDetailPanel() {
   var pid = state.selectedPlayerId;
   var open = pid != null;
@@ -798,6 +891,9 @@ function renderDetailPanel() {
   var mppCount = open ? data.matches.filter(function (m) { return m.modo === 'todos' && m.mpp === pid; }).length : 0;
   var segundoCount = open ? data.matches.filter(function (m) { return m.modo === 'todos' && m.podio[1] === pid; }).length : 0;
 
+  var heat = open ? computeHeatmap(pid, state.tablaFiltro) : { hexes: [], total: 0, pct: { simple: 0, doble: 0, triple: 0, fantasy: 0 } };
+  var filtroLabel = { todos: 'Todos los juegos', pussy: 'Pussy', seven: 'Seven', v21: '21' }[state.tablaFiltro];
+
   var html = '<div class="detail-panel' + (open ? ' open' : '') + '">' +
     '<div class="detail-hero">' +
     (foto ? '<img src="' + foto + '" alt="' + esc(nombre) + '">' : '<div class="initial-fallback">' + esc(iniciales(nombre)) + '</div>') +
@@ -812,6 +908,7 @@ function renderDetailPanel() {
     '<div class="stat-tile"><div class="st-val">' + cint + '</div><div class="st-label">CINT.</div></div>' +
     '</div>' +
     '<div><div class="label">G–P</div><div class="u-title" style="font-size:22px;margin-top:4px">' + (s ? s.pg + 'G–' + s.pp + 'P' : '—') + '</div></div>' +
+    renderHeatmapSection(heat, filtroLabel) +
     '<div><div class="label" style="margin-bottom:8px">Rendimiento por juego</div>' +
     ['pussy', 'seven', 'v21'].map(function (j) {
       var pj = porJuego[j].pj, pg = porJuego[j].pg;
@@ -831,7 +928,54 @@ function renderDetailPanel() {
    CARGAR (WIZARD)
    ========================================================= */
 function cargarResetParcial(extra) {
-  return Object.assign({ scoreA: 0, scoreB: 0, podio: [], mpp: null, cinturon: false, desempate: false, fantasy: false, pairSel: null }, extra || {});
+  return Object.assign({ scoreA: 0, scoreB: 0, podio: [], mpp: null, cinturon: false, desempate: false, fantasy: false, pairSel: null, shotX: 0.5, shotY: 0.82, shotTipo: 'doble' }, extra || {});
+}
+
+/* -- cancha en miniatura: usada tanto para tocar/marcar el tiro en el wizard
+   como para pintar el mapa de calor en el detalle del jugador -- */
+function courtSvgBase() {
+  return '<defs><radialGradient id="courtGlow" cx="50%" cy="85%" r="75%"><stop offset="0%" stop-color="#152242"></stop><stop offset="100%" stop-color="#0A1428"></stop></radialGradient></defs>' +
+    '<rect x="1" y="1" width="298" height="278" rx="10" fill="url(#courtGlow)" stroke="rgba(242,244,248,.15)" stroke-width="1.5"></rect>' +
+    '<path d="M150,1 A40,40 0 0 1 190,1" fill="none" stroke="rgba(242,244,248,.25)" stroke-width="1.5" stroke-dasharray="3,3"></path>' +
+    '<path d="M110,1 A40,40 0 0 0 150,1" fill="none" stroke="rgba(242,244,248,.25)" stroke-width="1.5" stroke-dasharray="3,3"></path>' +
+    '<path d="M18,260 L18,207.7 A135,135 0 0 1 282,207.7 L282,260" fill="none" stroke="rgba(242,244,248,.55)" stroke-width="2" stroke-linecap="round"></path>' +
+    '<rect x="101" y="144" width="98" height="116" fill="rgba(211,47,47,.07)" stroke="rgba(242,244,248,.4)" stroke-width="1.5"></rect>' +
+    '<path d="M114,144 A36,36 0 0 1 186,144" fill="none" stroke="rgba(242,244,248,.4)" stroke-width="1.5"></path>' +
+    '<path d="M114,144 A36,36 0 0 0 186,144" fill="none" stroke="rgba(242,244,248,.4)" stroke-width="1.5" stroke-dasharray="4,3"></path>' +
+    '<path d="M125,236 A25,25 0 0 0 175,236" fill="none" stroke="rgba(242,244,248,.4)" stroke-width="1.5"></path>' +
+    '<line x1="135" y1="250" x2="165" y2="250" stroke="rgba(242,244,248,.6)" stroke-width="3" stroke-linecap="round"></line>' +
+    '<circle cx="150" cy="238" r="5.5" fill="none" stroke="#F5B400" stroke-width="2"></circle>';
+}
+var SHOT_TIPO_LABEL = { simple: 'Simple', doble: 'Doble', triple: 'Triple', fantasy: 'Fantasy' };
+var SHOT_TIPO_COLOR = { simple: 'rgba(242,244,248,.4)', doble: '#D32F2F', triple: '#FF6B5D', fantasy: '#F5B400' };
+
+function shotTipoForzado() {
+  if (state.juego === 'pussy' && state.fantasy) return 'fantasy';
+  if (state.juego === 'seven') return 'triple';
+  return null;
+}
+function shotPickerHtml(ganadorId) {
+  var forzado = shotTipoForzado();
+  var tipoActivo = forzado || state.shotTipo;
+  var markerX = (state.shotX * COURT_VB_W).toFixed(1), markerY = (state.shotY * COURT_VB_H).toFixed(1);
+  var html = '<div class="label" style="margin:18px 0 10px">Tiro ganador</div>' +
+    '<div style="font:500 11px/1.4 \'Barlow\',sans-serif;color:var(--text-3);margin-bottom:10px">Tocá la cancha donde ' + esc(nombreDe(ganadorId)) + ' metió el tiro que ganó el partido.</div>' +
+    '<div class="card" style="padding:14px;display:flex;justify-content:center;margin-bottom:10px">' +
+    '<svg data-action="setShotPos" width="240" height="224" viewBox="0 0 ' + COURT_VB_W + ' ' + COURT_VB_H + '" style="cursor:crosshair;touch-action:none">' +
+    courtSvgBase() +
+    '<circle cx="' + markerX + '" cy="' + markerY + '" r="9" fill="rgba(211,47,47,.25)" stroke="#D32F2F" stroke-width="2.5"></circle>' +
+    '<circle cx="' + markerX + '" cy="' + markerY + '" r="3" fill="#D32F2F"></circle>' +
+    '</svg></div>';
+  if (forzado) {
+    html += '<div style="text-align:center;font:700 12px/1 \'Barlow\',sans-serif;color:' + SHOT_TIPO_COLOR[forzado] + ';margin-bottom:16px">' + SHOT_TIPO_LABEL[forzado] + (forzado === 'fantasy' ? ' · tiro fantasy' : ' · único tipo de tiro en Seven') + '</div>';
+  } else {
+    html += '<div style="display:flex;gap:8px;margin-bottom:16px">' +
+      ['simple', 'doble', 'triple'].map(function (t) {
+        var sel = tipoActivo === t;
+        return '<button class="filter-chip' + (sel ? ' active' : '') + '" style="flex:1" data-action="setShotTipo" data-arg="' + t + '">' + SHOT_TIPO_LABEL[t] + '</button>';
+      }).join('') + '</div>';
+  }
+  return html;
 }
 
 function renderCargar() {
@@ -951,6 +1095,7 @@ function renderCargarStep4Todos() {
   if (esPussy) {
     html += '<button class="toggle-row" data-action="toggleFantasy"><span><span class="tr-title" style="color:var(--gold)">Tiro fantasy</span><span class="tr-sub">El 1º ganó desde mitad de cancha</span></span>' + toggleSwitch('fantasy', state.fantasy, true) + '</button>';
   }
+  html += shotPickerHtml(state.podio[0]);
   html += '<div class="btn-row" style="margin-top:8px">' +
     '<button class="btn-secondary" data-action="cargarIrPaso" data-arg="3">Atrás</button>' +
     '<button class="btn btn-primary" data-action="cargarIrPaso" data-arg="5">Continuar</button></div>';
@@ -971,7 +1116,11 @@ function renderCargarStep4Dos() {
   if (esPussy) {
     html += '<button class="toggle-row" data-action="toggleFantasy"><span><span class="tr-title" style="color:var(--gold)">Tiro fantasy</span><span class="tr-sub">Ganó desde mitad de cancha</span></span>' + toggleSwitch('fantasy', state.fantasy, true) + '</button>';
   }
-  if (empateInvalido) html += '<div class="error-banner">Tiene que haber un ganador: el marcador no puede quedar empatado.</div>';
+  if (empateInvalido) {
+    html += '<div class="error-banner">Tiene que haber un ganador: el marcador no puede quedar empatado.</div>';
+  } else {
+    html += shotPickerHtml(state.scoreA > state.scoreB ? pair[0] : pair[1]);
+  }
   html += '<div class="btn-row" style="margin-top:8px">' +
     '<button class="btn-secondary" data-action="cargarIrPaso" data-arg="3">Atrás</button>' +
     '<button class="btn btn-primary' + (empateInvalido ? ' disabled' : '') + '" data-action="cargarIrPaso" data-arg="5">Continuar</button></div>';
@@ -1211,18 +1360,30 @@ var ACTIONS = {
   toggleCinturon: function () { setState({ cinturon: !state.cinturon }); },
   toggleDesempate: function () { setState({ desempate: !state.desempate }); },
   toggleFantasy: function () { setState({ fantasy: !state.fantasy }); },
+  setShotPos: function (arg, e) {
+    var svg = e.target.closest('[data-action="setShotPos"]');
+    if (!svg) return;
+    var rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    var relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    var relY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    setState({ shotX: relX, shotY: relY });
+  },
+  setShotTipo: function (arg) { setState({ shotTipo: arg }); },
   scoreDelta: function (arg) {
     var parts = arg.split(','); var side = parts[0], delta = Number(parts[1]);
     if (side === 'A') setState({ scoreA: Math.max(0, state.scoreA + delta) });
     else setState({ scoreB: Math.max(0, state.scoreB + delta) });
   },
   guardarPartido: function () {
+    var esFantasy = state.fantasy && state.juego === 'pussy';
     var match = {
       id: data.nextId++,
       juego: state.juego,
       modo: state.modo,
       cinturonEnJuego: state.cinturon,
-      fantasy: state.fantasy && state.juego === 'pussy',
+      fantasy: esFantasy,
+      shot: { x: state.shotX, y: state.shotY, tipo: shotTipoForzado() || state.shotTipo },
       jugadoAt: Date.now(),
       createdAt: Date.now()
     };
