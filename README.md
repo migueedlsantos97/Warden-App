@@ -33,3 +33,61 @@ El handoff de diseño (`.dc.html`) es un mockup visual con datos de ejemplo hard
 - **Fotos de jugadores**: solo había asset real para Miguelón (`foto-miguelon.png` del handoff). Murrey y Mojarrita usan un avatar con su inicial, igual que el propio mockup de diseño mostraba para Mojarrita.
 - **"Avisar al grupo"** (Fixture): en el mockup era un botón sin funcionalidad. Lo conecté a `navigator.share` (o copiar al portapapeles como fallback) para que sea útil.
 - Borrar un partido o una fecha del fixture muestra un toast con "Deshacer" por 5s, para evitar pérdidas accidentales de datos (no estaba en el mockup pero me pareció una buena práctica ya que no hay backend/backup).
+
+## Fuentes y tamaños
+
+Tres familias (Google Fonts, cargadas vía `<link>` en el `<head>`, sin descargarlas localmente):
+
+- **Anton** (peso único 400) — títulos de pantalla y nombres propios, siempre en mayúsculas (`text-transform:uppercase`). 30-34px en títulos de pantalla, 18-24px en nombres/headers de sección, 13-19px en nombres dentro de filas/chips.
+- **Teko** (500/600/700, se usa en 600) — números grandes tipo marcador (puntos, stats). 40-56px en números destacados (puntos de tabla, marcador del wizard), 20-30px en stats secundarias.
+- **Barlow** (500/600/700/800) — el resto de la UI: labels, botones, descripciones, chips. 8-9px en labels mayúsculas con letter-spacing .1-.3em, 10-13px en botones/toggles, 14-16px en CTAs principales.
+
+Tamaño exacto por elemento, auditado directamente contra los mockups `.dc.html` del handoff (útil si se toca el CSS y hay que verificar que no se desvíe):
+
+| Pantalla | Elemento | Fuente / peso | Tamaño |
+|---|---|---|---|
+| Todas | Kicker "Liga de básquet" | Barlow 700 | 9px, letter-spacing .3em |
+| Todas (Cargar/Fixture/Logros/Historial) | Título de pantalla | Anton 400 | 30px |
+| Tabla | Título "TABLA" | Anton 400 | **32px** (única pantalla con este tamaño) |
+| Tabla | Cinturón — label / nombre | Barlow 700 / Anton 400 | 9px / 18px |
+| Tabla | Sub-meta ("N partidos jugados") | Barlow 600 | 10px, letter-spacing .04em |
+| Tabla | Filter chips (Todos/Pussy/Seven/21) | Barlow 700 | 10px, letter-spacing .04em |
+| Tabla | Rank number (1,2,3 en fila) | Teko 600 | 36-40px |
+| Tabla | Nombre de jugador en fila | Anton 400 | 20px |
+| Tabla | Racha (badge rojo junto al nombre) | Barlow 700 | 9px |
+| Tabla | Puntos (columna derecha) | Teko 600 | 40px |
+| Tabla | "Próximo sugerido" — nombre / CTA | Anton 400 / Barlow 700 | 15px / 10px |
+| Tabla | Cara a cara — celdas | Barlow 700 | 14px |
+| Detalle jugador | Foto hero | — | alto **280px** |
+| Detalle jugador | Nombre sobre la foto | Anton 400 | **34px** |
+| Detalle jugador | Stat tiles (PJ/DIF/RACHA/CINT) | Teko 600 / Barlow 700 | 24px valor / 8px label |
+| Detalle jugador | Rendimiento por juego | Anton 400 | 14px |
+| Cargar | Step meta / step kicker | Barlow 600 / 700 | 10px / 9px |
+| Cargar | Pregunta de paso ("¿Jugaron los 3...?") | Anton 400 | **21px** |
+| Cargar | Nombre en choice-chip (juego/modo) | Anton 400 | 19px |
+| Cargar | Descripción en choice-chip | Barlow 500 | 11px |
+| Cargar | Nombre en podio-slot / pod-chip | Anton 400 | 15-16px |
+| Cargar | Marcador (steppers) | Teko 600 | 44px |
+| Cargar | Label del juego en paso Confirmar | Barlow 700 | **10px, letter-spacing .14em** (no el label genérico de 9px/.16em) |
+| Cargar | Marcador final en Confirmar | Teko 600 | 46px |
+| Cargar | CTA principal ("Continuar"/"Guardar") | Barlow 700/800 | 15-16px |
+| Fixture | "Próximo encuentro" — fecha / cuenta regresiva | Anton 400 / Teko 600 | 24px / 22px |
+| Fixture | Botón "Agendar y avisar" | Barlow 700 | **14px** (no 16px — es más chico que los CTA del wizard) |
+| Fixture | Toggle "Se repite todas las semanas" | Barlow 700 / 500 | **12px / 10px** (más chico que los toggles de Cargar, que son 13px/11px) |
+| Fixture | Fecha agendada — día / mes | Teko 600 / Barlow 700 | 26px / 9px |
+| Logros | Nombre del logro | Anton 400 | 13px |
+| Logros | Quién lo ganó / descripción | Barlow 700 / 500 | 11px / 10px |
+| Historial | Filter chips | Barlow 700 | **11px, letter-spacing .02em** (distinto del filtro de Tabla: 10px/.04em) |
+| Historial | Badge de juego + badges de cinturón/fantasy/MPP | Barlow 700 | **9px** (no 11px — son más chicos que los badges del wizard) |
+| Historial | Podio en cada partido (puesto / nombre) | Teko 600 / Barlow 700 | 11px / 12px |
+
+Íconos (todos son los PNG/SVG que ya venían en `assets/` del handoff, recoloreados vía `mask`):
+
+| Ícono | Tamaño |
+|---|---|
+| Nav inferior (Tabla/Fixture/Logros) | 19×19px |
+| Nav inferior "Historial" (SVG inline) | 19×19px |
+| FAB central (pelota) | círculo de 58px, ícono al 78% (inactivo) o 100% (activo, en Cargar) |
+| Trofeos de Logros | 26×26px |
+| Botón "volver" en detalle de jugador | círculo de 34×34px |
+| Avatares de jugador | 48×64px (fila de tabla / score card), 36×48px (chips de podio/MPP), 56×76px (matchup 1v1) |
