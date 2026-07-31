@@ -36,10 +36,10 @@ El handoff de diseño (`.dc.html`) es un mockup visual con datos de ejemplo hard
 
 ## Fuentes y tamaños
 
-Tres familias (Google Fonts, cargadas vía `<link>` en el `<head>`, sin descargarlas localmente):
+Tres familias, **auto-hospedadas** en `assets/fonts/*.woff2` (no se cargan desde Google Fonts por red — se embeben en el `<head>` vía `@font-face`). Se eligió así por dos motivos: la app es estática y sin backend, así que no depender de un CDN externo es consistente con esa filosofía; y de paso evita que la tipografía se rompa si el navegador no puede alcanzar `fonts.googleapis.com` (ad-blockers, redes restringidas, etc.) — cosa que efectivamente pasó al probar la app en un entorno con red restringida y confirmó que las capturas que mandé antes se habían renderizado con la fuente de reemplazo del sistema, no con el bug real. Solo se empaquetan los pesos que la app realmente usa:
 
 - **Anton** (peso único 400) — títulos de pantalla y nombres propios, siempre en mayúsculas (`text-transform:uppercase`). 30-34px en títulos de pantalla, 18-24px en nombres/headers de sección, 13-19px en nombres dentro de filas/chips.
-- **Teko** (500/600/700, se usa en 600) — números grandes tipo marcador (puntos, stats). 40-56px en números destacados (puntos de tabla, marcador del wizard), 20-30px en stats secundarias.
+- **Teko** (peso 600) — números grandes tipo marcador (puntos, stats). 40-56px en números destacados (puntos de tabla, marcador del wizard), 20-30px en stats secundarias.
 - **Barlow** (500/600/700/800) — el resto de la UI: labels, botones, descripciones, chips. 8-9px en labels mayúsculas con letter-spacing .1-.3em, 10-13px en botones/toggles, 14-16px en CTAs principales.
 
 Tamaño exacto por elemento, auditado directamente contra los mockups `.dc.html` del handoff (útil si se toca el CSS y hay que verificar que no se desvíe):
