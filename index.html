@@ -127,6 +127,7 @@ input:focus{outline:none;border-color:var(--red) !important}
 .player-row .pr-rank{font:400 36px/1 'Teko',sans-serif;color:var(--text-4);font-weight:600}
 .player-row .pr-name{font:400 20px/1 'Anton',sans-serif;text-transform:uppercase}
 .player-row .pr-sub{font:600 9px/1.5 'Barlow',sans-serif;color:var(--text-2);margin-top:2px}
+.name-caption{display:block;font:700 8.5px/1.3 'Barlow',sans-serif;letter-spacing:.1em;color:var(--text-3);text-transform:uppercase;margin-bottom:1px}
 .player-row .pr-pts{font:400 40px/1 'Teko',sans-serif;font-weight:600;text-align:right}
 .badge-1{display:inline-flex;align-items:center;gap:3px;background:rgba(211,47,47,.18);border:1px solid rgba(211,47,47,.4);border-radius:8px;padding:2px 6px;margin-left:6px}
 .badge-1 span{width:5px;height:5px;border-radius:50%;background:var(--red)}
@@ -146,7 +147,9 @@ input:focus{outline:none;border-color:var(--red) !important}
 .detail-hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,12,26,.15) 0%,rgba(6,12,26,.95) 92%)}
 .detail-back{position:absolute;top:18px;left:18px;width:34px;height:34px;border-radius:50%;background:rgba(8,18,38,.8);border:none;display:flex;align-items:center;justify-content:center;color:var(--text);cursor:pointer;z-index:2;transition:transform .15s ease}
 .detail-back:active{transform:scale(.88)}
-.detail-name{position:absolute;left:24px;bottom:16px;font:400 34px/1 'Anton',sans-serif;color:var(--text);text-transform:uppercase;z-index:2}
+.detail-name-wrap{position:absolute;left:24px;bottom:16px;z-index:2}
+.detail-name{font:400 34px/1 'Anton',sans-serif;color:var(--text);text-transform:uppercase}
+.name-caption-hero{font-size:10px;color:rgba(242,244,248,.75);text-shadow:0 1px 4px rgba(0,0,0,.6);margin-bottom:3px}
 .detail-shadow{position:absolute;left:0;right:0;top:280px;height:10px;background:linear-gradient(180deg,rgba(242,244,248,.12),rgba(242,244,248,0));pointer-events:none;z-index:2;opacity:0;transition:opacity .2s ease}
 .detail-shadow.show{opacity:1}
 .detail-scroll{flex:1;min-height:0;padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;scrollbar-width:none}
@@ -291,9 +294,9 @@ var DIAS = ['DOM','LUN','MAR','MIÉ','JUE','VIE','SÁB'];
 var COURT_VB_W = 300, COURT_VB_H = 280; // viewBox de la media cancha (wizard + heatmap)
 
 var PLAYER_DEFAULTS = [
-  { id: 0, nombre: 'Murrey', foto: 'assets/foto-murrey.jpg' },
-  { id: 1, nombre: 'Miguelón', foto: 'assets/foto-miguelon.jpg' },
-  { id: 2, nombre: 'Mojarrita', foto: 'assets/foto-mojarrita.jpg' }
+  { id: 0, nombre: 'Murrey', apellido: '', foto: 'assets/foto-murrey.jpg' },
+  { id: 1, nombre: 'Miguelón', apellido: 'Jackson', foto: 'assets/foto-miguelon.jpg' },
+  { id: 2, nombre: 'Mojarrita', apellido: 'Porraz', foto: 'assets/foto-mojarrita.jpg' }
 ];
 
 function cargarStorage() {
@@ -315,7 +318,7 @@ function datosIniciales() {
     version: 2,
     nextId: 1,
     nextEventoId: 1,
-    players: PLAYER_DEFAULTS.map(function (p) { return { id: p.id, nombre: p.nombre, foto: p.foto }; }),
+    players: PLAYER_DEFAULTS.map(function (p) { return { id: p.id, nombre: p.nombre, apellido: p.apellido, foto: p.foto }; }),
     matches: [],
     eventos: []
   };
@@ -394,6 +397,13 @@ function fotoDe(id) {
   var p = data.players.filter(function (x) { return x.id === id; })[0];
   return p ? p.foto : null;
 }
+function apellidoDe(id) {
+  var p = data.players.filter(function (x) { return x.id === id; })[0];
+  return p && p.apellido ? p.apellido : '';
+}
+/* nombre "grande" para las vistas tipo carta (fila de Tabla, detalle de
+   jugador): apellido si tiene, si no el nombre de siempre. */
+function nombreGrandeDe(id) { return apellidoDe(id) || nombreDe(id); }
 function iniciales(nombre) { return (nombre || '?').slice(0, 1).toUpperCase(); }
 function nombreCorto(nombre) { return (nombre || '').slice(0, 3).toUpperCase(); }
 
@@ -794,11 +804,14 @@ function renderTabla() {
   standings.forEach(function (s, i) {
     var racha = currentStreak(jugadosTodos, s.id);
     var mostrarRacha = racha.sign === 1 && racha.streak >= 2;
+    var apellido = apellidoDe(s.id);
     html += '<button class="player-row" data-action="selectPlayer" data-arg="' + s.id + '">' +
       avatarHtml(s.id, 'pr-photo') +
       '<div class="pr-rank">' + (i + 1) + '</div>' +
-      '<div><div style="display:flex;align-items:center">' +
-      '<span class="pr-name">' + esc(s.nombre) + '</span>' +
+      '<div>' +
+      (apellido ? '<span class="name-caption">' + esc(s.nombre) + '</span>' : '') +
+      '<div style="display:flex;align-items:center">' +
+      '<span class="pr-name">' + esc(apellido || s.nombre) + '</span>' +
       (mostrarRacha ? '<span class="badge-1"><span></span><b>' + racha.streak + '</b></span>' : '') +
       (s.id === cinturonId ? '<span class="badge-cint">CINT</span>' : '') +
       '</div><div class="pr-sub">' + s.pg + 'G–' + s.pp + 'P' + (state.tablaFiltro === 'todos' ? ' · dif ' + (s.dif > 0 ? '+' : '') + s.dif : '') + '</div></div>' +
@@ -893,12 +906,17 @@ function renderDetailPanel() {
 
   var heat = open ? computeHeatmap(pid, state.tablaFiltro) : { hexes: [], total: 0, pct: { simple: 0, doble: 0, triple: 0, fantasy: 0 } };
   var filtroLabel = { todos: 'Todos los juegos', pussy: 'Pussy', seven: 'Seven', v21: '21' }[state.tablaFiltro];
+  var apellidoPid = open ? apellidoDe(pid) : '';
+  var nombreGrande = open ? (apellidoPid || nombre) : '';
 
   var html = '<div class="detail-panel' + (open ? ' open' : '') + '">' +
     '<div class="detail-hero">' +
     (foto ? '<img src="' + foto + '" alt="' + esc(nombre) + '">' : '<div class="initial-fallback">' + esc(iniciales(nombre)) + '</div>') +
     '<button class="detail-back" data-action="closeDetail"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F2F4F8" stroke-width="2" stroke-linecap="round"><path d="M15 19l-7-7 7-7"></path></svg></button>' +
-    '<div class="detail-name">' + esc(nombre) + '</div></div>' +
+    '<div class="detail-name-wrap">' +
+    (apellidoPid ? '<span class="name-caption name-caption-hero">' + esc(nombre) + '</span>' : '') +
+    '<div class="detail-name">' + esc(nombreGrande) + '</div>' +
+    '</div></div>' +
     '<div class="detail-shadow' + (state.detailScrolled ? ' show' : '') + '"></div>' +
     '<div class="detail-scroll" data-role="detail-scroll">' +
     '<div class="stat-tiles">' +
